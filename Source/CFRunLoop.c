@@ -47,6 +47,11 @@
 #	include <dispatch/dispatch.h>
 #endif
 
+/* CJEC, 14-Jan-21: Fix build for ./configure --without-icu --without-gcd */
+#if defined (__MINGW64__)
+#include <pthread.h>
+#endif	/* defined (__MINGW64__) */
+
 /* From NSDate.m in GNUstep-base */
 #define DISTANT_FUTURE	63113990400.0
 
@@ -402,10 +407,21 @@ CFRunLoopCreate (void)
                                         NULL);
 
   CFSetAddValue(rl->_commonModes, kCFRunLoopDefaultMode);
-  
+
+/* CJEC, 14-Jan-21: Fix build for ./configure --without-icu --without-gcd */
+#if defined (_WIN32)
+  /* UNIX pipes are not supported by Windows C Runtime, nor MINGW64 extensions
+  **	All this will have to be reimplemented using back-to-back AF_UNIX
+  **	sockets, for Windows 10 and later.
+  **	Unfortunately, socketpair() is not available either, although
+  **	apparently, "unnamed AF_UNIX sockets" do exist
+  **	See https://devblogs.microsoft.com/commandline/af_unix-comes-to-windows/
+  */
+#else
   pipe(rl->_wakeUpPipe);
   fcntl(rl->_wakeUpPipe[0], F_SETFL, O_NONBLOCK);
   fcntl(rl->_wakeUpPipe[1], F_SETFL, O_NONBLOCK);
+#endif	/* defined (_WIN32) */
 
   return rl;
 }
@@ -853,7 +869,12 @@ CFRunLoopRunInMode (CFStringRef mode, CFTimeInterval seconds,
 
       // printf("poll: %d ms\n", timeout);
       // printf("poll %d sources\n", numSources);
+	  /* CJEC, 14-Jan-21: Fix build for ./configure --without-icu --without-gcd */
+#if defined (_WIN32)
+      sourcesFired = WSAPoll(pfd, numSources, timeout);
+#else
       sourcesFired = poll(pfd, numSources, timeout);
+#endif	/* defined (_WIN32) */
 
       rl->_isWaiting = false;
       // Notify observers with kCFRunLoopAfterWaiting activity.

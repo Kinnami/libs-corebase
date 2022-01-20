@@ -44,6 +44,9 @@
 #	include <fcntl.h>
 #	include <unistd.h>
 #	include <errno.h>
+/* CJEC, 14-Jan-21: Fix build for ./configure --without-icu --without-gcd */
+#else
+#include <fcntl.h>
 #endif
 #include <stdlib.h>
 

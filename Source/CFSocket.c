@@ -40,8 +40,11 @@
 #include <stdio.h>
 
 #if defined(_WIN32)
-#include <winsock2.h>
-typedef socklen_t int;
+/* CJEC, 14-Jan-21: Fix build for ./configure --without-icu --without-gcd */
+#include <ws2tcpip.h>
+// #include <winsock2.h>
+// typedef socklen_t int;
+
 #define EINPROGRESS WSAEINPROGRESS
 
 CF_INLINE int
@@ -295,8 +298,9 @@ CFSocketCreate (CFAllocatorRef alloc, SInt32 protocolFamily,
       winsockErr = WSAStartup (winsockVersionRequested, &winsockData);
       if (winsockErr != 0)
         return NULL;
-      if (LOBYTE(wsaData.wVersion) != WINSOCK_MAJOR_VERSION
-          || HIBYTE(wsaData.wVersion) != WINSOCK_MINOR_VERSION)
+/* CJEC, 14-Jan-21: Fix build for ./configure --without-icu --without-gcd */
+      if (LOBYTE(winsockData.wVersion) != WINSOCK_MAJOR_VERSION
+          || HIBYTE(winsockData.wVersion) != WINSOCK_MINOR_VERSION)
         {
           WSACleanup ();
           _kWinsockInitialized = false;
@@ -451,9 +455,15 @@ CFSocketConnectToAddress (CFSocketRef s, CFDataRef address,
   if (timeout < 0.0)
     {
       int f;
+/* CJEC, 14-Jan-21: Fix build for ./configure --without-icu --without-gcd */
+#if defined (_WIN32)
+	  f = 1;
+	  if (ioctlsocket (sock, FIONBIO, &f) != 0)
+#else
       f = fcntl (sock, F_GETFL, 0);
       f |= O_NONBLOCK;
       if (fcntl (sock, F_SETFL, f) != 0)
+#endif	/* defined (_WIN32) */
         return kCFSocketError;
     }
   err = connect (sock, addr, addrlen);

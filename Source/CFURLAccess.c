@@ -38,6 +38,13 @@
 
 #include <windows.h>
 
+/* CJEC, 14-Jan-21: Fix build for ./configure --without-icu --without-gcd */
+#include <fcntl.h>
+#include <sys/stat.h>
+#if defined (__MINGW64__)
+#include <dirent.h>
+#endif	/* defined (__MINGW64__) */
+
 #else
 
 #include <sys/types.h>
@@ -443,7 +450,12 @@ CFURLWriteDataAndPropertiesToResource (CFURLRef url,
       
       if (CFURLHasDirectoryPath (url))
         {
+/* CJEC, 14-Jan-21: Fix build for ./configure --without-icu --without-gcd */
+#if defined (_WIN32)
+          if (mkdir (path) < 0)
+#else
           if (mkdir (path, mode) < 0)
+#endif	/* defined (_WIN32) */
             error = kCFURLUnknownError;
         }
       else
