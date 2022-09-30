@@ -218,9 +218,5 @@ NSCFTYPE_VARS
     - kCFAbsoluteTimeIntervalSince1970;
 }
 
-- (BOOL)isEqualToTimeZone:(NSTimeZone *)aTimeZone
-{
-  return [[self name] isEqual: [aTimeZone name]];
-}
 @end
 

@@ -763,6 +763,7 @@ CFStringGetBytes (CFStringRef str, CFRange range, CFStringEncoding enc,
   const UniChar *sUnicode;
   CFIndex converted;
 
+  converted = 0;
   if (CF_IS_OBJC (_kCFStringTypeID, str))
     {
       /* Boolean b; */

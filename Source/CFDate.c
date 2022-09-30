@@ -351,17 +351,17 @@ CFGregorianDateIsValid (CFGregorianDate gdate, CFOptionFlags unitFlags)
   /* unitFlags is unused, must be ignored */
   Boolean isValid = FALSE;
   
-  if (unitFlags | kCFGregorianUnitsYears)
+  if (unitFlags & kCFGregorianUnitsYears)
     isValid = TRUE; /* FIXME: What's the test here? */
-  if (unitFlags | kCFGregorianUnitsMonths)
+  if (unitFlags & kCFGregorianUnitsMonths)
     isValid = ((gdate.month >= 1) && (gdate.month <= 12));
-  if (unitFlags | kCFGregorianUnitsDays)
+  if (unitFlags & kCFGregorianUnitsDays)
     isValid = TRUE; /* FIXME */
-  if (unitFlags | kCFGregorianUnitsHours)
+  if (unitFlags & kCFGregorianUnitsHours)
     isValid = ((gdate.hour >= 0) && (gdate.hour < 24));
-  if (unitFlags | kCFGregorianUnitsMinutes)
+  if (unitFlags & kCFGregorianUnitsMinutes)
     isValid = ((gdate.minute >= 0) && (gdate.minute < 60));
-  if (unitFlags | kCFGregorianUnitsSeconds)
+  if (unitFlags & kCFGregorianUnitsSeconds)
     isValid = ((gdate.second >= 0.0) && (gdate.second < 60.0));
   
   return isValid;
