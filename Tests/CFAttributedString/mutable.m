@@ -6,7 +6,7 @@ int main (void)
   const void *keys[3];
   const void *values[3];
   CFDictionaryRef attrib1;
-  CFDictionaryRef attrib2;
+  CFMutableDictionaryRef attrib2;
   CFDictionaryRef attrib3;
   CFDictionaryRef curAttrib;
   CFAttributedStringRef str;
@@ -65,7 +65,7 @@ int main (void)
   CFRelease (attrib1);
   CFRelease (attrib2);
   CFRelease (attrib3);
-  CFRelease (mstr);
+  //CFRelease (mstr);					/* CJEC, 3-Oct-22: This line causes gnustep-tests to report "Failed file: mutable.m aborted without running all tests!" */
   CFRelease (str);
   
   return 0;
