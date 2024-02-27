@@ -6,6 +6,18 @@ AC_INIT([libgnustep-corebase], [0.2], [bug-gnustep@gnu.org])
 AC_CONFIG_SRCDIR([Source/CFBase.c])
 AC_CONFIG_HEADERS([Source/config.h])
 
+if test -n "$GNUSTEP_MAKEFILES"; then
+  #--------------------------------------------------------------------
+  # Use config.guess, config.sub and install-sh provided by gnustep-make
+  #--------------------------------------------------------------------
+  AC_CONFIG_AUX_DIR($GNUSTEP_MAKEFILES)
+
+  #--------------------------------------------------------------------
+  # Determine the host, build, and target systems
+  #--------------------------------------------------------------------
+  AC_CANONICAL_TARGET([])
+fi
+
 #--------------------------------------------------------------------
 # Find the compiler
 #--------------------------------------------------------------------
@@ -77,6 +89,23 @@ AS_CASE([$gs_cv_c_data_model],
 AC_CHECK_SIZEOF([double])
 AC_CHECK_SIZEOF([long double])
 
+
+#--------------------------------------------------------------------
+# Check for CFRunLoop support
+# Android and QNX have pthread in libc instead of libpthread
+#--------------------------------------------------------------------
+AC_ARG_ENABLE(cfrunloop,
+  [--disable-cfrunloop
+    Disables CFRunLoop support and requiring pthread.
+    Must be passed when building on Windows.],
+  [],
+  [AC_CHECK_HEADERS([unistd.h fcntl.h poll.h limits.h pthread.h],
+    [AC_SEARCH_LIBS(pthread_join, [pthread pthreadG32 pthreadVC2],
+      [AC_DEFINE(HAVE_CFRUNLOOP_SUPPORT, 1,
+        [Define to 1 if the required libraries and headers for CFRunLoop are present.])],
+      [AC_MSG_ERROR([Missing pthread library for CFRunLoop support.])])],
+    [AC_MSG_ERROR([Missing headers for CFRunLoop support.])])])
+
 #---
 # Check for ICU
 #---
@@ -84,12 +113,20 @@ AC_ARG_WITH([icu],
   AS_HELP_STRING([--without-icu],
     [Disable Internation Components for Unicode. WARNING: Many components will stop working without ICU support!]), [], [with_icu=yes])
 AS_IF([test x"with_icu" != xno],
-  [PKG_CHECK_MODULES([ICU], [icu-i18n > 49.0])
-  AC_CHECK_HEADERS([unicode/ucal.h unicode/uchar.h unicode/ucnv.h unicode/ucol.h unicode/ucurr.h unicode/udat.h unicode/udatpg.h unicode/uloc.h unicode/ulocdata.h unicode/unorm.h unicode/unum.h unicode/usearch.h unicode/ustring.h unicode/utrans.h],
-  [], AC_MSG_ERROR([Could not find required ICU headers.]))
+  [found_icu=no
+  AS_CASE([$target_os],
+    [mingw*|windows], [ # check for ICU bundled with Windows 10
+      AC_CHECK_LIB(icu, udat_open,
+        [AC_CHECK_HEADERS([icu.h], [found_icu=yes
+          LIBS="$LIBS -licu"
+          AC_MSG_NOTICE([Using ICU DLL from Windows 10 (requires version 1903)])])])])
+  AS_IF([test $found_icu = no],
+    [PKG_CHECK_MODULES([ICU], [icu-i18n > 49.0])
+    LIBS="$LIBS $ICU_LIBS"; CFLAGS="$CFLAGS $ICU_CFLAGS"; INCLUDE_FLAGS="$INCLUDE_FLAGS $ICU_CFLAGS"
+    AC_CHECK_HEADERS([unicode/ucal.h unicode/uchar.h unicode/ucnv.h unicode/ucol.h unicode/ucurr.h unicode/udat.h unicode/udatpg.h unicode/uloc.h unicode/ulocdata.h unicode/unorm2.h unicode/unum.h unicode/usearch.h unicode/uset.h unicode/ustring.h unicode/utrans.h], [],
+      AC_MSG_ERROR([Could not find required ICU headers.]))])
   AC_DEFINE([HAVE_ICU], [1],
-    [Define to 1 if you have International Components for Unicode.])
-  ])
+    [Define to 1 if you have International Components for Unicode.])])
 
 #---
 # Check for Grand Central Dispatch (libdispatch)
@@ -99,11 +136,14 @@ AC_ARG_WITH([gcd],
     [Explicitly compiles without Grand Central Dispatch support. Configure will attempt to find a compatible library, use this option if you do not wish to have the support.  The opposite option, --with-gcd, is also supported and should be used if Grand Central Dispatch support is absolutely required.  A compatible library will required (http://www.nickhutchinson.me/libdispatch).])],
   [], [with_gcd=maybe])
 AS_IF([test "x$with_gcd" != xno],
-  [AC_CHECK_HEADERS([dispatch/dispatch.h],
-    [AC_CHECK_LIB([dispatch], dispatch_get_main_queue_eventfd_np, [],
+  AC_CHECK_HEADERS([dispatch/dispatch.h],
+    AC_CHECK_LIB([dispatch], [dispatch_get_main_queue_eventfd_np], ,
       AS_IF([test "x$with_gcd" = "xyes"],
-        AC_MSG_ERROR([Compatible libdispatch not found for GCD support!])),
-    AC_MSG_ERROR([Could not find the Grand Central Dispatch headers.]))])])
+        AC_MSG_ERROR([Compatible libdispatch not found for GCD support!]))
+    ),
+    AC_MSG_ERROR([Could not find the Grand Central Dispatch headers.])
+  )
+)
 
 #---
 # Check for the Objective-C runtime
@@ -149,6 +189,11 @@ AC_DEFINE_UNQUOTED([TZDIR], ["$with_zoneinfo"],
 # Check for libm
 #---
 AC_CHECK_LIB(m, modf)
+
+#---
+# Check for WinSock2
+#---
+AC_CHECK_HEADERS(ws2tcpip.h)
 
 AC_CONFIG_FILES([Source/GNUmakefile Headers/CoreFoundation/CFBase.h])
 
