@@ -39,6 +39,7 @@
 #include <math.h>
 #include <stdio.h>
 
+#if defined (_WIN32)
 #include <winsock2.h>
 #ifdef HAVE_WS2TCPIP_H
 #include <ws2tcpip.h>
