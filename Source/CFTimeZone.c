@@ -537,7 +537,7 @@ CFTimeZoneCopyDefault (void)
     {
       CFTimeZoneRef new;
       new = CFTimeZoneCopySystem(); /* FIXME */
-      if (GSAtomicCompareAndSwapPointer(&_kCFTimeZoneDefault, NULL, new) != NULL)
+      if (GSAtomicCompareAndSwapPointer((void**) &_kCFTimeZoneDefault, NULL, new) != NULL)
         CFRelease (new);
     }
   
@@ -548,7 +548,7 @@ void
 CFTimeZoneSetDefault (CFTimeZoneRef tz)
 {
   CFTimeZoneRef old;
-  old = GSAtomicCompareAndSwapPointer(&_kCFTimeZoneDefault,
+  old = GSAtomicCompareAndSwapPointer((void**) &_kCFTimeZoneDefault,
                                       _kCFTimeZoneDefault, CFRetain (tz));
   if (old != NULL)
     CFRelease (old);
@@ -561,7 +561,7 @@ CFTimeZoneCopySystem (void)
     {
       CFTimeZoneRef new;
       new = CFTimeZoneCreateWithTimeIntervalFromGMT (NULL, 0.0); /* FIXME */
-      if (GSAtomicCompareAndSwapPointer(&_kCFTimeZoneSystem, NULL, new) != NULL)
+      if (GSAtomicCompareAndSwapPointer((void**) &_kCFTimeZoneSystem, NULL, new) != NULL)
         CFRelease (new);
     }
   
@@ -574,7 +574,7 @@ CFTimeZoneResetSystem (void)
   if (_kCFTimeZoneSystem != NULL)
     {
       CFTimeZoneRef old;
-      old = GSAtomicCompareAndSwapPointer(&_kCFTimeZoneSystem,
+      old = GSAtomicCompareAndSwapPointer((void**) &_kCFTimeZoneSystem,
                                           _kCFTimeZoneSystem, NULL);
       if (old != NULL)
         CFRelease (old);
@@ -816,7 +816,7 @@ CFTimeZoneCopyAbbreviationDictionary (void)
       new = CFDictionaryCreateCopy (NULL, dict);
       CFRelease (dict);
       
-      if (GSAtomicCompareAndSwapPointer(&_kCFTimeZoneAbbreviationDictionary,
+      if (GSAtomicCompareAndSwapPointer((void**) &_kCFTimeZoneAbbreviationDictionary,
           NULL, new) != NULL)
         CFRelease (new);
     }
@@ -828,7 +828,7 @@ void
 CFTimeZoneSetAbbreviationDictionary (CFDictionaryRef dict)
 {
   CFDictionaryRef old;
-  old = GSAtomicCompareAndSwapPointer(&_kCFTimeZoneAbbreviationDictionary,
+  old = GSAtomicCompareAndSwapPointer((void**) &_kCFTimeZoneAbbreviationDictionary,
                                       _kCFTimeZoneAbbreviationDictionary,
                                       CFDictionaryCreateCopy (NULL, dict));
   if (old != NULL)
