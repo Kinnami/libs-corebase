@@ -27,6 +27,10 @@
    Boston, MA 02110-1301, USA.
 */
 
+#if defined (__MINGW64__)
+// from MSYS2 package mingw-w64-x86_64-libblocksruntime-swift
+#include <Block.h>
+#endif
 #include "config.h"
 #include "CoreFoundation/CFRuntime.h"
 #include "CoreFoundation/CFRunLoop.h"
