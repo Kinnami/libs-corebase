@@ -64,11 +64,11 @@ static void CFsrandomdev (void)
   #include <sys/types.h>
   #include <sys/stat.h>
   #include <time.h>
+  #include <unistd.h>
   #define INITRANDOM() CFsrandomdev()
   #if defined(__linux__)
     #include <fcntl.h>
     #include <errno.h>
-    #include <unistd.h>
 static void CFsrandomdev(void)
 {
   int fd;
@@ -145,12 +145,6 @@ CFUUIDBytesEqual (const void *b1, const void *b2)
     return true;
   
   return false;
-}
-
-static CFHashCode
-CFUUIDBytesHash (const void *bytes)
-{
-  return GSHashBytes (bytes, 16);
 }
 
 static Boolean
@@ -287,8 +281,8 @@ CFUUIDCreateString (CFAllocatorRef alloc, CFUUIDRef uuid)
   CFStringRef ret;
   CFUUIDBytes bytes = uuid->_bytes;
   
-  ret = CFStringCreateWithFormat (alloc, NULL, CFSTR("%2hhx%2hhx%2hhx%2hhx-"
-    "%2hhx%2hhx-%2hhx%2hhx-%2hhx%2hhx-%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx"),
+  ret = CFStringCreateWithFormat (alloc, NULL, CFSTR("%02hhX%02hhX%02hhX%02hhX-"
+    "%02hhX%02hhX-%02hhX%02hhX-%02hhX%02hhX-%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX"),
       bytes.byte0, bytes.byte1, bytes.byte2, bytes.byte3,
       bytes.byte4, bytes.byte5, bytes.byte6, bytes.byte7,
       bytes.byte8, bytes.byte9, bytes.byte10, bytes.byte11,
@@ -304,36 +298,36 @@ CFUUIDGetConstantUUIDWithBytes (CFAllocatorRef alloc, UInt8 byte0, UInt8 byte1,
   UInt8 byte13, UInt8 byte14, UInt8 byte15)
 {
   CFUUIDRef uuid;
-  CFUUIDBytes uuidBytes;
-  CFSetCallBacks cb = {0, NULL, NULL, NULL, CFUUIDBytesEqual, CFUUIDBytesHash};
+  struct __CFUUID key;
+  CFSetCallBacks cb = {0, NULL, NULL, NULL, CFUUIDEqual, CFUUIDHash};
   
-  uuidBytes.byte0 = byte0;
-  uuidBytes.byte1 = byte1;
-  uuidBytes.byte2 = byte2;
-  uuidBytes.byte3 = byte3;
-  uuidBytes.byte4 = byte4;
-  uuidBytes.byte5 = byte5;
-  uuidBytes.byte6 = byte6;
-  uuidBytes.byte7 = byte7;
-  uuidBytes.byte8 = byte8;
-  uuidBytes.byte9 = byte9;
-  uuidBytes.byte10 = byte10;
-  uuidBytes.byte11 = byte11;
-  uuidBytes.byte12 = byte12;
-  uuidBytes.byte13 = byte13;
-  uuidBytes.byte14 = byte14;
-  uuidBytes.byte15 = byte15;
+  key._bytes.byte0 = byte0;
+  key._bytes.byte1 = byte1;
+  key._bytes.byte2 = byte2;
+  key._bytes.byte3 = byte3;
+  key._bytes.byte4 = byte4;
+  key._bytes.byte5 = byte5;
+  key._bytes.byte6 = byte6;
+  key._bytes.byte7 = byte7;
+  key._bytes.byte8 = byte8;
+  key._bytes.byte9 = byte9;
+  key._bytes.byte10 = byte10;
+  key._bytes.byte11 = byte11;
+  key._bytes.byte12 = byte12;
+  key._bytes.byte13 = byte13;
+  key._bytes.byte14 = byte14;
+  key._bytes.byte15 = byte15;
   
+  /* FIXME ... do we really want to keep UUID instances forever?
+   */
   GSMutexLock (&_kCFUUIDLock);
   if (_kCFUUIDConstants == NULL)
     _kCFUUIDConstants = CFSetCreateMutable (NULL, 0, &cb);
   
-  if (!CFSetGetValueIfPresent(_kCFUUIDConstants, &uuidBytes,
-      (const void**)&uuid))
+  if (!CFSetGetValueIfPresent(_kCFUUIDConstants, &key, (const void**)&uuid))
     {
-      uuid = CFUUIDCreateFromUUIDBytes (NULL, uuidBytes);
+      uuid = CFUUIDCreateFromUUIDBytes (NULL, key._bytes);
       CFSetAddValue (_kCFUUIDConstants, (const void*)uuid);
-      CFRelease (uuid);
     }
   GSMutexUnlock (&_kCFUUIDLock);
   
@@ -351,4 +345,3 @@ CFUUIDGetTypeID (void)
 {
   return _kCFUUIDTypeID;
 }
-

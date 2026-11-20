@@ -49,6 +49,7 @@
 #endif
 #if defined(HAVE_UNICODE_USTRING_H)
 #include <unicode/ustring.h>
+#include <unicode/ubrk.h>
 #endif
 #if defined(HAVE_UNICODE_UTRANS_H)
 #include <unicode/utrans.h>
@@ -904,25 +905,40 @@ CFRange
 CFStringGetRangeOfComposedCharactersAtIndex (CFStringRef str,
                                              CFIndex theIndex)
 {
+  CFAllocatorRef alloc;
+  UniChar *characters;
+  CFIndex length;
+  UBreakIterator *bi;
+  UErrorCode err = U_ZERO_ERROR;
+  int32_t start;
+  int32_t end;
+
   CF_OBJC_FUNCDISPATCHV (_kCFStringTypeID, CFRange, str,
                          "rangeOfComposedCharacterSequenceAtIndex:",
                          theIndex);
 
-  if (CFStringIsUnicode (str))
-    {
-      CFIndex len = 1;
-      UniChar *characters = ((UniChar *) str->_contents) + theIndex;
-      if (U16_IS_SURROGATE (*characters))
-        {
-          len = 2;
-          if (U16_IS_SURROGATE_TRAIL (*characters))
-            theIndex -= 1;
-        }
+  length = CFStringGetLength (str);
+  if (theIndex < 0 || theIndex >= length)
+    return CFRangeMake (theIndex, 1);
 
-      return CFRangeMake (theIndex, len);
+  alloc = CFAllocatorGetDefault ();
+  characters = CFAllocatorAllocate (alloc, length * sizeof (UniChar), 0);
+  CFStringGetCharacters (str, CFRangeMake (0, length), characters);
+
+  bi = ubrk_open (UBRK_CHARACTER, NULL, characters, length, &err);
+  if (U_FAILURE (err))
+    {
+      CFAllocatorDeallocate (alloc, characters);
+      return CFRangeMake (theIndex, 1);
     }
 
-  return CFRangeMake (theIndex, 1);
+  end = ubrk_following (bi, (int32_t) theIndex);
+  start = ubrk_previous (bi);
+
+  ubrk_close (bi);
+  CFAllocatorDeallocate (alloc, characters);
+
+  return CFRangeMake (start, end - start);
 }
 
 UTF32Char
@@ -936,7 +952,7 @@ Boolean
 CFStringGetSurrogatePairForLongCharacter (UTF32Char character,
                                           UniChar * surrogates)
 {
-  if (character > 0x10000)
+  if (character < 0x10000)
     return false;
 
   surrogates[0] = U16_LEAD (character);
@@ -957,18 +973,32 @@ CFStringIsSurrogateLowCharacter (UniChar character)
   return (Boolean) U16_IS_TRAIL (character);
 }
 
+static CFRange
+CFStringSkipLeadingWhitespace (CFStringRef str)
+{
+  CFIndex length = CFStringGetLength (str);
+  CFIndex start = 0;
+
+  while (start < length
+         && GSCharacterIsWhitespace (CFStringGetCharacterAtIndex (str, start)))
+    start++;
+
+  return CFRangeMake (start, length - start);
+}
+
 double
 CFStringGetDoubleValue (CFStringRef str)
 {
   double d;
   Boolean success;
   CFNumberFormatterRef fmt;
+  CFRange range = CFStringSkipLeadingWhitespace (str);
 
   fmt = CFNumberFormatterCreate (NULL, NULL, kCFNumberFormatterDecimalStyle);
   if (fmt == NULL)
     return 0.0;
 
-  success = CFNumberFormatterGetValueFromString (fmt, str, NULL,
+  success = CFNumberFormatterGetValueFromString (fmt, str, &range,
                                                  kCFNumberDoubleType,
                                                  (void *) &d);
 
@@ -982,17 +1012,22 @@ CFStringGetIntValue (CFStringRef str)
   SInt32 i;
   Boolean success;
   CFNumberFormatterRef fmt;
+  CFRange range = CFStringSkipLeadingWhitespace (str);
 
   fmt = CFNumberFormatterCreate (NULL, NULL, kCFNumberFormatterNoStyle);
   if (fmt == NULL)
     return 0;
 
-  success = CFNumberFormatterGetValueFromString (fmt, str, NULL,
+  i = 0;
+  success = CFNumberFormatterGetValueFromString (fmt, str, &range,
                                                  kCFNumberSInt32Type,
                                                  (void *) &i);
 
   CFRelease (fmt);
-  return success ? i : 0;
+  /* Contrary to the documentation, the actual implementation ignores bad
+   * characters (matching OSX and the corresponding NSString method).
+   */
+  return i; // success ? i : 0;
 }
 
 
@@ -1127,7 +1162,44 @@ CFStringFindAndReplace (CFMutableStringRef str, CFStringRef stringToFind,
                         CFStringRef replacementString, CFRange rangeToSearch,
                         CFOptionFlags compareOptions)
 {
-  return 0;                     /* FIXME */
+  CFIndex count;
+  CFIndex replacementLength;
+  CFRange search;
+  CFRange found;
+
+  if (stringToFind == NULL)
+    return 0;
+
+  replacementLength = replacementString != NULL
+    ? CFStringGetLength (replacementString) : 0;
+  search = rangeToSearch;
+  count = 0;
+
+  while (search.length > 0
+         && CFStringFindWithOptions (str, stringToFind, search,
+                                     compareOptions, &found))
+    {
+      if (replacementString != NULL)
+        CFStringReplace (str, found, replacementString);
+      else
+        CFStringDelete (str, found);
+      count++;
+
+      if (compareOptions & kCFCompareBackwards)
+        {
+          search.length = found.location - search.location;
+        }
+      else
+        {
+          CFIndex delta = replacementLength - found.length;
+          CFIndex next = found.location + replacementLength;
+
+          search.length = (search.location + search.length + delta) - next;
+          search.location = next;
+        }
+    }
+
+  return count;
 }
 
 void

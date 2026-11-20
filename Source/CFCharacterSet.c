@@ -140,8 +140,11 @@ CFCharacterSetCreateWithCharactersInRange (CFAllocatorRef alloc,
     _kCFCharacterSetTypeID, CFCHARACTERSET_SIZE, 0);
   if (new)
     {
-      new->_uset = uset_open ((UChar32)range.location,
-        (UChar32)(range.location + range.length));
+      if (range.length <= 0)
+        new->_uset = uset_openEmpty ();
+      else
+        new->_uset = uset_open ((UChar32)range.location,
+          (UChar32)(range.location + range.length - 1));
       uset_freeze (new->_uset);
     }
   
@@ -200,8 +203,9 @@ static const UniChar uppercase_letter[] =
   { '[', ':', 'L', 'u', ':', ']'  };
 static const UniChar non_base[] =
   { '[', ':', 'M', ':', ']'  };
-static const UniChar decomposable[] = /* FIXME */
-  { ' '  };
+static const UniChar decomposable[] =
+  { '[', ':', 'd', 't', '=', 'C', 'a', 'n', 'o', 'n', 'i', 'c', 'a', 'l',
+    ':', ']' };
 static const UniChar alpha_numeric[] =
   { '[', '[', ':', 'L', ':', ']', '[', ':', 'M', ':', ']',
     '[', ':', 'N', ':', ']', ']' };
@@ -326,6 +330,23 @@ CFCharacterSetIsCharacterMember (CFCharacterSetRef set, UniChar c)
 Boolean
 CFCharacterSetHasMemberInPlane (CFCharacterSetRef set, CFIndex plane)
 {
+  UChar32 planeStart = (UChar32)(plane << 16);
+  UChar32 planeEnd = planeStart + 0xFFFF;
+  int32_t idx;
+  int32_t count;
+
+  count = uset_getItemCount (set->_uset);
+  for (idx = 0; idx < count; idx++)
+    {
+      UChar32 start;
+      UChar32 end;
+      UErrorCode err = U_ZERO_ERROR;
+
+      if (uset_getItem (set->_uset, idx, &start, &end, NULL, 0, &err) == 0
+          && start <= planeEnd && end >= planeStart)
+        return true;
+    }
+
   return false;
 }
 
@@ -378,8 +399,10 @@ void
 CFCharacterSetAddCharactersInRange (CFMutableCharacterSetRef set,
   CFRange range)
 {
+  if (range.length <= 0)
+    return;
   uset_addRange (set->_uset, (UChar32)range.location,
-    (UChar32)(range.location + range.length));
+    (UChar32)(range.location + range.length - 1));
 }
 
 void
@@ -393,8 +416,10 @@ void
 CFCharacterSetRemoveCharactersInRange (CFMutableCharacterSetRef set,
   CFRange range)
 {
+  if (range.length <= 0)
+    return;
   uset_removeRange (set->_uset, (UChar32)range.location,
-    (UChar32)(range.location + range.length));
+    (UChar32)(range.location + range.length - 1));
 }
 
 void
